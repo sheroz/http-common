@@ -1,6 +1,6 @@
 [package]
 name = "http_common"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Sheroz Khaydarov"]
 description = "Common types and operations for HTTP"
@@ -8,6 +8,5 @@ documentation = "https://docs.rs/http_common"
 readme = "README.md"
 repository = "https://github.com/sheroz/http_common"
 license = "MIT"
-keywords = ["http", "web", "network", "header"]
+keywords = ["http", "web", "network", "header", "parser", "range"]
 categories = ["web-programming", "network-programming", "parser-implementations"]
-
