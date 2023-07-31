@@ -5,6 +5,6 @@
 [![build & test](https://github.com/sheroz/http_common/actions/workflows/ci.yml/badge.svg)](https://github.com/sheroz/http_common/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/github/license/sheroz/http_common)](https://github.com/sheroz/http_common/tree/main/LICENSE)
 
-## WIP: Headers
+## Headers
 
-* WIP: Range operations
+* Basic support for HTTP Range, [RFC7233](https://datatracker.ietf.org/doc/html/rfc7233)

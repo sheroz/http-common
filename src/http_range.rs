@@ -1,35 +1,55 @@
+//! HTTP Range
+//! 
 //! Implemented according
+//!
 //!  * WIP [RFC7233](https://datatracker.ietf.org/doc/html/rfc7233)
 //!  * WIP [RFC7232](https://datatracker.ietf.org/doc/html/rfc7232)
 //!  * WIP [RFC2616](https://www.ietf.org/rfc/rfc2616)
-//! 
-//! Additional resources:
 //!
-//! https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
+//! Additional resources
 //!
-//! https://http.dev/range-request
+//! [Mozilla: HTTP range requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests)
+//!
+//! [http.dev: HTTP Range Request](https://http.dev/range-request)
 
 use std::ops::Range;
 pub static RANGE_UNIT: &str = "bytes";
 
 #[derive(Debug, PartialEq)]
+/// Parsed values of the `CONTENT_RANGE` header
 pub struct HttpRange {
+    /// Ranges part of the `CONTENT_RANGE` header
     pub ranges: Vec<Range<u64>>,
+
+    /// Complete length part of the `CONTENT_RANGE` header
     pub complete_length: Option<CompleteLength>,
 }
 
 #[derive(Debug, PartialEq)]
+/// Complete length part of the range header
 pub enum CompleteLength {
+    /// Complete length of the selected representation is known by the sender and provided in the header
     Representation(u64),
+
+    /// '*' - a complete length of the selected representation is unknown
     Unknown,
 }
 
-pub fn parse(range_value: &str, bytes_count: u64) -> Option<HttpRange> {
-    if range_value.is_empty() {
+/// Returns a parsed value of `CONTENT_RANGE` header
+///
+/// # Arguments
+///
+/// * content_range - a `&str` input to parse, a value part of `CONTENT_RANGE` header
+/// * content_length - a `u64` length of existing content, in bytes
+pub fn parse(content_range: &str, content_length: u64) -> Option<HttpRange> {
+    if content_range.is_empty() {
         return None;
     }
 
-    let parts = range_value.split("=").map(|p| p.trim()).collect::<Vec<_>>();
+    let parts = content_range
+        .split("=")
+        .map(|p| p.trim())
+        .collect::<Vec<_>>();
     if parts.is_empty() {
         return None;
     }
@@ -60,7 +80,7 @@ pub fn parse(range_value: &str, bytes_count: u64) -> Option<HttpRange> {
         if values.len() != 2 {
             return None;
         }
-        let mut range = 0..bytes_count - 1;
+        let mut range = 0..content_length - 1;
         let start = values[0];
         let end = values[1];
 
@@ -70,7 +90,7 @@ pub fn parse(range_value: &str, bytes_count: u64) -> Option<HttpRange> {
         }
         if start.is_empty() && !end.is_empty() {
             let count = end.parse::<u64>().unwrap();
-            range.start = bytes_count - count;
+            range.start = content_length - count;
         }
 
         if !start.is_empty() && end.is_empty() {
@@ -80,11 +100,12 @@ pub fn parse(range_value: &str, bytes_count: u64) -> Option<HttpRange> {
         ranges.push(range);
     }
 
+    // processing for combined ranges
+    // https://datatracker.ietf.org/doc/html/rfc7233#section-4.3
     ranges.sort_by(|a, b| a.start.cmp(&b.start));
-
     let ranges_count = ranges.len();
     if ranges_count > 1 {
-        // merge continuous and overlapping ranges
+        // merging continuous and overlapping ranges
         let mut retain = vec![true; ranges_count];
         let mut range_last = ranges[0].clone();
         for (index, range) in ranges.iter_mut().enumerate() {
@@ -95,7 +116,7 @@ pub fn parse(range_value: &str, bytes_count: u64) -> Option<HttpRange> {
             range_last = range.clone();
         }
 
-        // clean-up merged ranges
+        // cleaning-up merged ranges
         let mut index = 0;
         ranges.retain(|_| {
             let keep = retain[index];
@@ -107,7 +128,9 @@ pub fn parse(range_value: &str, bytes_count: u64) -> Option<HttpRange> {
     let complete_length = match length_param {
         "" => None,
         "*" => Some(CompleteLength::Unknown),
-        _ => Some(CompleteLength::Representation(length_param.parse::<u64>().unwrap()))
+        _ => Some(CompleteLength::Representation(
+            length_param.parse::<u64>().unwrap(),
+        )),
     };
 
     let http_range = HttpRange {
@@ -118,11 +141,27 @@ pub fn parse(range_value: &str, bytes_count: u64) -> Option<HttpRange> {
     Some(http_range)
 }
 
-pub fn none_satisfiable(http_range: &HttpRange, content_length: u64 ) -> bool {
+/// Returns a `bool` indicating if none of the ranges in `HttpRange` are satisfiable within `content_length`
+///
+/// Reference: [416 Range Not Satisfiable](https://datatracker.ietf.org/doc/html/rfc7233#section-4.4)
+///
+/// # Arguments
+///
+/// * http_range - a reference to `HttpRange`
+/// * content_length - a `u64` length of existing content, in bytes
+pub fn none_satisfiable(http_range: &HttpRange, content_length: u64) -> bool {
     !any_satisfiable(http_range, content_length)
 }
 
-pub fn any_satisfiable(http_range: &HttpRange, content_length: u64 ) -> bool {
+/// Returns a `bool` indicating if any of ranges in `HttpRange` are satisfiable within `content_length`
+///
+/// Reference: [416 Range Not Satisfiable](https://datatracker.ietf.org/doc/html/rfc7233#section-4.4)
+///
+/// # Arguments
+///
+/// * http_range - a reference to `HttpRange`
+/// * content_length - a `u64` length of existing content, in bytes
+pub fn any_satisfiable(http_range: &HttpRange, content_length: u64) -> bool {
     // 416 Range Not Satisfiable
     // https://datatracker.ietf.org/doc/html/rfc7233#section-4.4
     for range in &http_range.ranges {
@@ -133,24 +172,33 @@ pub fn any_satisfiable(http_range: &HttpRange, content_length: u64 ) -> bool {
     false
 }
 
-pub fn range_satisfiable(range: &Range<u64>, content_length: u64 ) -> bool {
-    // 416 Range Not Satisfiable
-    // https://datatracker.ietf.org/doc/html/rfc7233#section-4.4
+/// Returns a `bool` indicating if the given range is satisfiable within `content_length`
+///
+/// Reference: [416 Range Not Satisfiable](https://datatracker.ietf.org/doc/html/rfc7233#section-4.4)
+///
+/// # Arguments
+///
+/// * http_range - a reference to `Range<u64>`
+/// * content_length - a `u64` length of existing content, in bytes
+pub fn range_satisfiable(range: &Range<u64>, content_length: u64) -> bool {
     range.start < content_length
 }
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    /// https://datatracker.ietf.org/doc/html/rfc7233#section-4.2
+
+    ///  Tests implemented according to:
+    ///  https://datatracker.ietf.org/doc/html/rfc7233#section-4.2
     ///
-    /// Examples of byte-ranges-specifier values:
+    ///  Examples of byte-ranges-specifier values:
     ///    -  The first 500 bytes (byte offsets 0-499, inclusive):
     ///         bytes=0-499
     ///    -  The second 500 bytes (byte offsets 500-999, inclusive):
     ///         bytes=500-999
     ///
-    /// Additional examples, assuming a representation of length 10000:
+    ///  Additional examples, assuming a representation of length 10000:
     ///    The final 500 bytes (byte offsets 9500-9999, inclusive):
     ///         bytes=-500
     ///    Or:
@@ -161,16 +209,15 @@ mod tests {
     ///       bytes (byte offsets 500-999, inclusive):
     ///         bytes=500-600,601-999
     ///         bytes=500-700,601-999
-    /// 
-    /// Additional examples:
-    ///    https://datatracker.ietf.org/doc/html/rfc7233#section-4.2
-    /// 
+    ///
+    ///  Additional examples
+    ///
     ///     - The first 500 bytes:
     ///         Content-Range: bytes 0-499/1234
-    /// 
+    ///
     ///     - The second 500 bytes:
     ///         Content-Range: bytes 500-999/1234
-    /// 
+    ///
     ///     - All except for the first 500 bytes:
     ///         Content-Range: bytes 500-1233/1234
     ///  
