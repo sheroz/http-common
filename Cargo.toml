@@ -9,5 +9,5 @@ readme = "README.md"
 repository = "https://github.com/sheroz/http_common"
 license = "MIT"
 keywords = ["http", "web", "network", "header"]
-categories = ["web-programming", "network-programming", "parsing", "parser-implementations"]
+categories = ["web-programming", "network-programming", "parser-implementations"]
 
