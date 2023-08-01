@@ -7,4 +7,8 @@
 
 ## Headers
 
-* Basic support for HTTP Range, [RFC7233](https://datatracker.ietf.org/doc/html/rfc7233)
+- Basic support for HTTP Range, [RFC7233](https://datatracker.ietf.org/doc/html/rfc7233)
+
+## Project Stage
+
+Development: this project already has milestone releases, but is still under active development, you should not expect full stability yet.
