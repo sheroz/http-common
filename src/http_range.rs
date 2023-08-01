@@ -1,5 +1,5 @@
 //! HTTP Range
-//! 
+//!
 //! Implemented according
 //!
 //!  * WIP [RFC7233](https://datatracker.ietf.org/doc/html/rfc7233)
@@ -39,8 +39,8 @@ pub enum CompleteLength {
 ///
 /// # Arguments
 ///
-/// * content_range - a `&str` input to parse, a value part of `CONTENT_RANGE` header
-/// * content_length - a `u64` length of existing content, in bytes
+/// * `content_range` - a `&str` input to parse, a value part of `CONTENT_RANGE` header
+/// * `content_length` - a `u64` length of existing content, in bytes
 pub fn parse(content_range: &str, content_length: u64) -> Option<HttpRange> {
     if content_range.is_empty() {
         return None;
@@ -141,6 +141,32 @@ pub fn parse(content_range: &str, content_length: u64) -> Option<HttpRange> {
     Some(http_range)
 }
 
+/// Returns a `String` value built from `HttpRange`
+///
+/// # Arguments
+///
+/// * `http_range` - a reference to `HttpRange`
+pub fn build(http_range: &HttpRange) -> String {
+    if http_range.ranges.is_empty() {
+        return "".to_string();
+    }
+
+    let ranges = http_range
+        .ranges
+        .iter()
+        .map(|r| format!("{}-{}", r.start, r.end))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    match &http_range.complete_length {
+        Some(CompleteLength::Representation(content_length)) => {
+            format!("{}={}/{}", RANGE_UNIT, ranges, content_length)
+        }
+        Some(CompleteLength::Unknown) => format!("{}={}/*", RANGE_UNIT, ranges),
+        None => format!("{}={}", RANGE_UNIT, ranges),
+    }
+}
+
 /// Returns a `bool` indicating if none of the ranges in `HttpRange` are satisfiable within `content_length`
 ///
 /// Reference: [416 Range Not Satisfiable](https://datatracker.ietf.org/doc/html/rfc7233#section-4.4)
@@ -159,8 +185,8 @@ pub fn none_satisfiable(http_range: &HttpRange, content_length: u64) -> bool {
 ///
 /// # Arguments
 ///
-/// * http_range - a reference to `HttpRange`
-/// * content_length - a `u64` length of existing content, in bytes
+/// * `http_range` - a reference to `HttpRange`
+/// * `content_length` - a `u64` length of existing content, in bytes
 pub fn any_satisfiable(http_range: &HttpRange, content_length: u64) -> bool {
     // 416 Range Not Satisfiable
     // https://datatracker.ietf.org/doc/html/rfc7233#section-4.4
@@ -178,8 +204,8 @@ pub fn any_satisfiable(http_range: &HttpRange, content_length: u64) -> bool {
 ///
 /// # Arguments
 ///
-/// * http_range - a reference to `Range<u64>`
-/// * content_length - a `u64` length of existing content, in bytes
+/// * `http_range` - a reference to `Range<u64>`
+/// * `content_length` - a `u64` length of existing content, in bytes
 pub fn range_satisfiable(range: &Range<u64>, content_length: u64) -> bool {
     range.start < content_length
 }
