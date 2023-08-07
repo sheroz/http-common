@@ -1,16 +1,14 @@
 //! HTTP Range
 //!
 //! Implemented according
-//!
-//!  * WIP [RFC7233](https://datatracker.ietf.org/doc/html/rfc7233)
-//!  * WIP [RFC7232](https://datatracker.ietf.org/doc/html/rfc7232)
-//!  * WIP [RFC2616](https://www.ietf.org/rfc/rfc2616)
+//! - WIP [RFC9110](https://www.rfc-editor.org/rfc/rfc9110.html)
+//! - WIP [RFC2616](https://www.ietf.org/rfc/rfc2616)
 //!
 //! Additional resources
-//!
-//! [Mozilla: HTTP range requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests)
-//!
-//! [http.dev: HTTP Range Request](https://http.dev/range-request)
+//! - Obsolete [RFC7233](https://datatracker.ietf.org/doc/html/rfc7233)
+//! - Obsolete [RFC7232](https://datatracker.ietf.org/doc/html/rfc7232)
+//! - [Mozilla: HTTP range requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests)
+//! - [http.dev: HTTP Range Request](https://http.dev/range-request)
 
 use std::ops::Range;
 pub static RANGE_UNIT: &str = "bytes";
@@ -329,6 +327,19 @@ mod tests {
             http_range,
             HttpRange {
                 ranges: vec![0..0, 9999..9999],
+                complete_length: None
+            }
+        );
+    }
+    #[test]
+    fn test6() {
+        // https://www.rfc-editor.org/rfc/rfc9110.html#section-14.1.2
+        // the first, middle, and last 1000 bytes
+        let http_range = HttpRange::from_header("bytes= 0-999, 4500-5499, -1000", 10000).unwrap();
+        assert_eq!(
+            http_range,
+            HttpRange {
+                ranges: vec![0..999, 4500..5499, 9000..9999],
                 complete_length: None
             }
         );
